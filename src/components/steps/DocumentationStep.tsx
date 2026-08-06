@@ -1,18 +1,15 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ClientType, FormData } from '../../types'
 import { getDocumentsForClientType } from '../../data/documents'
 import { ClientTypeSelector } from '../documents/ClientTypeSelector'
 import { DocumentAccordion } from '../documents/DocumentAccordion'
 import {
-  ICE_DOC_ID,
-  isIceExtractionClient,
-  type IceExtractionResult,
-} from '../../services/ocr/iceTypes'
-import {
-  isRcDocument,
-  type RcExtractionResult,
-} from '../../services/ocr/rcTypes'
-import { iceWorkspaceService } from '../../services/iceWorkspace'
+  CIN_DOC_IDS,
+  ICE_DOC_ID_API,
+  extractCin,
+  extractIce,
+  OcrApiError,
+} from '../../services/api/ocrApi'
 
 interface Props {
   data: FormData
@@ -38,55 +35,30 @@ function setDocumentFile(
   )
 }
 
-function applyIceResult(
-  result: IceExtractionResult,
-  workspaceId: string
-): Partial<FormData> {
-  return {
-    iceOcr: result,
-    iceWorkspaceId: workspaceId,
-    ...(result.ice ? { ice: result.ice } : {}),
-    ...(result.numeroRc ? { registreCommerce: result.numeroRc } : {}),
-    ...(result.villeRc ? { villeRc: result.villeRc } : {}),
+function findDocFile(
+  documents: FormData['documents'],
+  docIds: readonly string[]
+): File | null {
+  for (const cat of documents) {
+    for (const doc of cat.documents) {
+      if (docIds.includes(doc.id) && doc.file) return doc.file
+    }
   }
+  return null
 }
 
-function applyRcResult(
-  result: RcExtractionResult,
-  workspaceId: string
-): Partial<FormData> {
-  return {
-    rcOcr: result,
-    iceWorkspaceId: workspaceId,
-    ...(result.numeroRc ? { registreCommerce: result.numeroRc } : {}),
-    ...(result.villeRc ? { villeRc: result.villeRc } : {}),
-  }
-}
-
-async function clearWorkspace(workspaceId: string | null): Promise<void> {
-  if (!workspaceId) return
-  try {
-    await iceWorkspaceService.delete(workspaceId)
-  } catch {
-  }
+function nonEmpty(value: string | null | undefined): string | undefined {
+  const v = (value ?? '').trim()
+  return v ? v : undefined
 }
 
 export function DocumentationStep({ data, onChange, onNext }: Props) {
   const [openId, setOpenId] = useState<string | null>('identite')
-  const iceJobIdRef = useRef(0)
-  const rcJobIdRef = useRef(0)
-  const workspaceIdRef = useRef(data.iceWorkspaceId)
-
-  workspaceIdRef.current = data.iceWorkspaceId
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState<string | null>(null)
 
   const handleClientType = (clientType: ClientType) => {
-    iceJobIdRef.current += 1
-    rcJobIdRef.current += 1
-    const previousWorkspaceId = workspaceIdRef.current
-    workspaceIdRef.current = null
-
-    void clearWorkspace(previousWorkspaceId)
-
+    setExtractError(null)
     onChange({
       clientType,
       documents: getDocumentsForClientType(clientType),
@@ -97,123 +69,99 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
     setOpenId('identite')
   }
 
-  const startIceExtractionAsync = (
-    file: File,
-    clientType: IceExtractionResult['clientType']
-  ) => {
-    const jobId = ++iceJobIdRef.current
-
-    void (async () => {
-      try {
-        const { extractIceFromFile } = await import('../../services/ocr')
-        const result = await extractIceFromFile(file, clientType)
-
-        if (jobId !== iceJobIdRef.current) return
-
-        await clearWorkspace(workspaceIdRef.current)
-
-        const workspace = await iceWorkspaceService.createFromExtraction(
-          file,
-          result
-        )
-
-        if (jobId !== iceJobIdRef.current) {
-          await clearWorkspace(workspace.meta.workspaceId)
-          return
-        }
-
-        workspaceIdRef.current = workspace.meta.workspaceId
-
-        const rcDoc = data.documents
-          .flatMap((cat) => cat.documents)
-          .find((doc) => isRcDocument(doc.id) && doc.file)
-
-        if (rcDoc?.file && data.rcOcr) {
-          await iceWorkspaceService.writeRcExtraction(
-            workspace.meta.workspaceId,
-            rcDoc.file,
-            data.rcOcr
-          )
-        }
-
-        onChange(applyIceResult(result, workspace.meta.workspaceId))
-      } catch {
-        if (jobId !== iceJobIdRef.current) return
-      }
-    })()
-  }
-
-  const startRcExtractionAsync = (file: File, documentId: string) => {
-    const jobId = ++rcJobIdRef.current
-
-    void (async () => {
-      try {
-        const { extractRcFromFile } = await import('../../services/ocr')
-        const result = await extractRcFromFile(file, documentId)
-
-        if (jobId !== rcJobIdRef.current) return
-
-        const workspaceId = await iceWorkspaceService.writeRcExtraction(
-          workspaceIdRef.current,
-          file,
-          result
-        )
-
-        if (jobId !== rcJobIdRef.current) return
-
-        workspaceIdRef.current = workspaceId
-        onChange(applyRcResult(result, workspaceId))
-      } catch {
-        if (jobId !== rcJobIdRef.current) return
-      }
-    })()
-  }
-
   const handleFileChange = (
     categoryId: string,
     docId: string,
     file: File | null
   ) => {
-    const shouldRunIceOcr =
-      isIceExtractionClient(data.clientType) && docId === ICE_DOC_ID
-    const shouldRunRcOcr = isRcDocument(docId)
-
-    if (!file) {
-      if (shouldRunIceOcr) {
-        iceJobIdRef.current += 1
-        const previousWorkspaceId = workspaceIdRef.current
-        workspaceIdRef.current = null
-        void clearWorkspace(previousWorkspaceId)
-      }
-      if (shouldRunRcOcr) {
-        rcJobIdRef.current += 1
-      }
-
-      onChange({
-        documents: setDocumentFile(data.documents, categoryId, docId, null),
-        ...(shouldRunIceOcr
-          ? { iceOcr: null, iceWorkspaceId: null }
-          : {}),
-        ...(shouldRunRcOcr ? { rcOcr: null } : {}),
-      })
-      return
-    }
-
+    setExtractError(null)
     onChange({
       documents: setDocumentFile(data.documents, categoryId, docId, file),
     })
+  }
 
-    if (shouldRunIceOcr && isIceExtractionClient(data.clientType)) {
-      startIceExtractionAsync(file, data.clientType)
+  const handleNext = async () => {
+    if (extracting) return
+    setExtractError(null)
+
+    const cinFile = findDocFile(data.documents, CIN_DOC_IDS)
+    const iceFile = findDocFile(data.documents, [ICE_DOC_ID_API])
+
+    // Pas de document identité/ICE → navigation classique
+    if (!cinFile && !iceFile) {
+      onNext()
+      return
     }
 
-    if (shouldRunRcOcr) {
-      startRcExtractionAsync(file, docId)
+    setExtracting(true)
+    try {
+      const patch: Partial<FormData> = {}
+      const errors: string[] = []
+
+      const tasks: Promise<void>[] = []
+
+      if (cinFile) {
+        tasks.push(
+          (async () => {
+            try {
+              const res = await extractCin(cinFile)
+              const d = res.data
+              if (nonEmpty(d.nom)) patch.nom = d.nom.trim()
+              if (nonEmpty(d.prenom)) patch.prenom = d.prenom.trim()
+              if (nonEmpty(d.cin)) patch.cin = d.cin.trim()
+            } catch (err) {
+              const msg =
+                err instanceof OcrApiError
+                  ? err.message
+                  : 'Échec de l’extraction CIN (vérifiez que le backend tourne).'
+              errors.push(`CIN : ${msg}`)
+            }
+          })()
+        )
+      }
+
+      if (iceFile) {
+        tasks.push(
+          (async () => {
+            try {
+              const res = await extractIce(iceFile)
+              const d = res.data
+              if (nonEmpty(d.RC_Numero)) patch.registreCommerce = d.RC_Numero.trim()
+              if (nonEmpty(d.RC_Ville)) patch.villeRc = d.RC_Ville.trim()
+              if (nonEmpty(d.ICE)) patch.ice = d.ICE.trim()
+              if (nonEmpty(d.Denomination)) {
+                patch.raisonSociale = d.Denomination.trim()
+              }
+            } catch (err) {
+              const msg =
+                err instanceof OcrApiError
+                  ? err.message
+                  : 'Échec de l’extraction ICE (vérifiez que le backend tourne).'
+              errors.push(`ICE : ${msg}`)
+            }
+          })()
+        )
+      }
+
+      await Promise.all(tasks)
+
+      if (Object.keys(patch).length > 0) {
+        onChange(patch)
+      }
+
+      if (errors.length > 0) {
+        setExtractError(errors.join(' '))
+        return
+      }
+
+      onNext()
+    } finally {
+      setExtracting(false)
     }
   }
 
   const canProceed =
-    data.clientType !== '' && data.acceptCgu && data.acceptData
+    data.clientType !== '' && data.acceptCgu && data.acceptData && !extracting
 
   return (
     <div className="step-panel">
@@ -221,7 +169,9 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
         <h1>Documents Requis</h1>
         <p>
           Choisissez votre profil puis joignez les documents nécessaires à
-          l&apos;étude de votre dossier
+          l&apos;étude de votre dossier. Au clic sur Suivant, la CIN et
+          l&apos;ICE sont analysées automatiquement pour préremplir
+          l&apos;identification.
         </p>
       </header>
 
@@ -267,6 +217,7 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
           type="checkbox"
           checked={data.acceptCgu}
           onChange={(e) => onChange({ acceptCgu: e.target.checked })}
+          disabled={extracting}
         />
         <span>
           J&apos;accepte les{' '}
@@ -282,21 +233,35 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
           type="checkbox"
           checked={data.acceptData}
           onChange={(e) => onChange({ acceptData: e.target.checked })}
+          disabled={extracting}
         />
         <span>
           J&apos;autorise Wafabail à traiter mes données personnelles *
         </span>
       </label>
 
+      {extractError ? (
+        <p className="extract-error" role="alert">
+          {extractError}
+        </p>
+      ) : null}
+
+      {extracting ? (
+        <p className="extract-status" aria-live="polite">
+          Analyse CIN / ICE en cours via le serveur… cela peut prendre quelques
+          secondes.
+        </p>
+      ) : null}
+
       <div className="nav-row nav-row--end">
         <button
           type="button"
           className="btn-primary"
           disabled={!canProceed}
-          onClick={onNext}
+          onClick={() => void handleNext()}
         >
-          Suivant
-          <span aria-hidden="true">→</span>
+          {extracting ? 'Extraction…' : 'Suivant'}
+          {!extracting ? <span aria-hidden="true">→</span> : null}
         </button>
       </div>
     </div>
