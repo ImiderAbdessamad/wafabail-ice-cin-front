@@ -1,9 +1,12 @@
-/** Client HTTP vers ocr-cin-ice (CIN + ICE). */
+/** Client HTTP vers ocr-cin-ice (CIN + ICE).
+ *
+ * En local : laisser VITE_API_BASE_URL vide → requêtes `/api/...`
+ * passent par le proxy Vite (même origine, pas de CORS).
+ */
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(
-  /\/$/,
-  ''
-) ?? ''
+const API_BASE = (
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+).trim().replace(/\/$/, '')
 
 export interface CinExtractData {
   nom: string
