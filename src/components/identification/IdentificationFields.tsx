@@ -75,6 +75,8 @@ export function IdentificationFields({
               className={`input ${invalid ? 'is-invalid' : ''}`}
               type={field.type ?? 'text'}
               inputMode={field.inputMode}
+              required={field.required}
+              autoComplete={field.id === 'nom' ? 'family-name' : field.id === 'prenom' ? 'given-name' : field.id === 'email' ? 'email' : field.id === 'gsm' ? 'tel' : field.id === 'raisonSociale' ? 'organization' : 'off'}
               value={data[field.id as FieldValueKey]}
               aria-invalid={invalid}
               aria-describedby={invalid ? `${field.id}-error` : undefined}

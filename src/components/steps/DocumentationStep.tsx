@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ClientType, FormData } from '../../types'
-import { getDocumentsForClientType } from '../../data/documents'
+import { countAllUploaded, getDocumentsForClientType } from '../../data/documents'
 import { ClientTypeSelector } from '../documents/ClientTypeSelector'
 import { DocumentAccordion } from '../documents/DocumentAccordion'
 import {
@@ -56,8 +56,11 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
   const [openId, setOpenId] = useState<string | null>('identite')
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
+  const { uploaded, total } = countAllUploaded(data.documents)
 
   const handleClientType = (clientType: ClientType) => {
+    if (extracting || clientType === data.clientType) return
+    if (uploaded > 0 && !window.confirm('Changer de profil retirera les pièces déjà jointes. Continuer ?')) return
     setExtractError(null)
     onChange({
       clientType,
@@ -164,23 +167,26 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
     data.clientType !== '' && data.acceptCgu && data.acceptData && !extracting
 
   return (
-    <div className="step-panel">
+    <div className="step-panel" aria-busy={extracting}>
       <header className="step-header">
-        <h1>Documents Requis</h1>
+        <h2>Commençons par vos documents</h2>
         <p>
-          Choisissez votre profil puis joignez les documents nécessaires à
-          l&apos;étude de votre dossier. Au clic sur Suivant, la CIN et
-          l&apos;ICE sont analysées automatiquement pour préremplir
-          l&apos;identification.
+          Choisissez votre profil et joignez les pièces de votre dossier.
+          Nous lirons votre CIN et votre ICE pour vous éviter de tout ressaisir.
         </p>
       </header>
 
       <ClientTypeSelector
         value={data.clientType}
         onChange={handleClientType}
+        disabled={extracting}
       />
 
       {data.clientType ? (
+        <div className="document-section">
+          <div className="document-section__heading"><h3 className="section-label"><span>02</span> Les pièces à préparer</h3><span className="document-total" aria-live="polite">{uploaded} / {total} jointes</span></div>
+          <div className="document-progress" role="progressbar" aria-label="Pièces jointes" aria-valuenow={uploaded} aria-valuemin={0} aria-valuemax={total}><span style={{ width: `${total ? uploaded / total * 100 : 0}%` }} /></div>
+          <p className="document-instructions">Glissez un fichier sur sa ligne ou cliquez sur « Joindre ». <span>* Pièce requise pour l’étude du dossier.</span></p>
         <div className="doc-list">
           {data.documents.map((cat) => (
             <DocumentAccordion
@@ -193,18 +199,22 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
               onFileChange={(docId, file) =>
                 handleFileChange(cat.id, docId, file)
               }
+              disabled={extracting}
             />
           ))}
         </div>
+        </div>
       ) : (
         <p className="doc-list-empty">
-          Sélectionnez votre profil pour afficher les documents à joindre.
+          <span className="empty-document-icon" aria-hidden="true">↥</span>
+          <strong>Un dossier adapté à votre profil</strong>
+          Sélectionnez votre profil ci-dessus pour découvrir les pièces à préparer.
         </p>
       )}
 
       <div className="notice-box">
-        Cette liste de documents n&apos;est pas exhaustive. Des compléments de
-        documents pourraient vous être demandés.
+        <span aria-hidden="true">ⓘ </span> Une pièce vous manque ? Vous pouvez préparer la suite,
+        mais les documents requis devront être complétés avant l’étude du dossier.
       </div>
 
       <p className="legal-note">
@@ -254,13 +264,14 @@ export function DocumentationStep({ data, onChange, onNext }: Props) {
       ) : null}
 
       <div className="nav-row nav-row--end">
+        <p className="navigation-hint">{!data.clientType ? 'Choisissez votre profil pour continuer.' : !data.acceptCgu || !data.acceptData ? 'Acceptez les deux autorisations pour continuer.' : `${uploaded} pièce${uploaded > 1 ? 's' : ''} jointe${uploaded > 1 ? 's' : ''} · Prochaine étape : votre projet`}</p>
         <button
           type="button"
           className="btn-primary"
           disabled={!canProceed}
           onClick={() => void handleNext()}
         >
-          {extracting ? 'Extraction…' : 'Suivant'}
+          {extracting ? 'Analyse en cours…' : extractError ? 'Réessayer l’analyse' : 'Continuer'}
           {!extracting ? <span aria-hidden="true">→</span> : null}
         </button>
       </div>

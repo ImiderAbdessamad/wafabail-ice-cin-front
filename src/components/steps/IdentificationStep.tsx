@@ -48,16 +48,19 @@ export function IdentificationStep({ data, onChange, onNext, onBack }: Props) {
 
   const handleNext = () => {
     setSubmitAttempted(true)
-    if (!canProceed) return
+    if (!canProceed) {
+      requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus())
+      return
+    }
     onNext()
   }
 
   return (
     <div className="step-panel">
       <header className="step-header">
-        <h1>Formulaire d&apos;Identification</h1>
+        <h2>Faisons connaissance</h2>
         <p>
-          Renseignez vos informations personnelles ou celles de votre entreprise
+          Vérifiez les informations préremplies et complétez vos coordonnées.
         </p>
       </header>
 
@@ -95,13 +98,13 @@ export function IdentificationStep({ data, onChange, onNext, onBack }: Props) {
         <button
           type="button"
           className="btn-primary"
-          disabled={!canProceed && submitAttempted}
           onClick={handleNext}
         >
           Suivant
           <span aria-hidden="true">→</span>
         </button>
       </div>
+      {submitAttempted && !canProceed && <p className="field-error" role="alert">Vérifiez les champs signalés pour continuer.</p>}
 
       <p className="required-legend">* Champs obligatoires</p>
     </div>

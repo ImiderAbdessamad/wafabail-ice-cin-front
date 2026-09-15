@@ -58,8 +58,8 @@ export function SimulationStep({ data, onChange, onNext, onBack }: Props) {
   return (
     <div className="step-panel">
       <header className="step-header">
-        <h1>Formulaire de Simulation</h1>
-        <p>Renseignez les détails de votre besoin de financement</p>
+        <h2>Parlons de votre projet</h2>
+        <p>Précisez le montant, la durée et le bien que vous souhaitez financer.</p>
       </header>
 
       <fieldset className="field-group">
@@ -219,6 +219,8 @@ export function SimulationStep({ data, onChange, onNext, onBack }: Props) {
           </div>
         </div>
       </div>
+
+      {montantNum > 0 && <div className="sim-result" aria-live="polite"><div><span className="sim-result__label">Montant souhaité (HT)</span><strong>{formatDh(montantNum)}</strong></div><div><span className="sim-result__label">Votre apport initial</span><strong className="sim-result__accent">{formatDh(montantApport)}</strong></div></div>}
 
       <div className="nav-row">
         <button type="button" className="btn-secondary" onClick={onBack}>

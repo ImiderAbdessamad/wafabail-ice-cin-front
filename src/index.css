@@ -1,17 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
-  --bg: #050505;
-  --surface: #14171c;
-  --surface-2: #1c2128;
-  --surface-3: #252b34;
-  --border: #2a303a;
-  --text: #f5f5f5;
-  --text-muted: #9ca3af;
+  --bg: #f8f6f3;
+  --surface: #ffffff;
+  --surface-2: #fcfaf8;
+  --surface-3: #eee8e2;
+  --border: #e5ddd6;
+  --text: #292521;
+  --text-muted: #736b65;
   --accent: #f97316;
-  --accent-hover: #fb923c;
-  --accent-soft: rgba(249, 115, 22, 0.12);
-  --danger: #ef4444;
+  --accent-hover: #ea690a;
+  --accent-ink: #9b3d0c;
+  --accent-soft: #fff4ec;
+  --danger: #b42318;
   --radius: 14px;
   --radius-pill: 999px;
   --font: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -43,8 +44,15 @@ select {
   font: inherit;
 }
 
+textarea { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--accent-ink);
+  outline-offset: 4px;
+}
+button:disabled { cursor: not-allowed; }
+
 a {
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
 }
 

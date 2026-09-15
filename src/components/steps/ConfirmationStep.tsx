@@ -28,7 +28,7 @@ export function ConfirmationStep({ data, onBack, onSubmit }: Props) {
   return (
     <div className="step-panel">
       <header className="step-header">
-        <h1>Confirmation</h1>
+        <h2>Un dernier coup d’œil</h2>
         <p>Vérifiez les informations avant de soumettre</p>
       </header>
 
@@ -51,8 +51,8 @@ export function ConfirmationStep({ data, onBack, onSubmit }: Props) {
         </div>
 
         <div className="recap__notice">
-          En soumettant votre demande, vous recevrez un e-mail contenant un
-          numéro de demande vous permettant de suivre son avancement.
+          Parcours de démonstration : terminer affiche une confirmation locale.
+          Aucun dossier ni e-mail ne sera envoyé.
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export function ConfirmationStep({ data, onBack, onSubmit }: Props) {
           Précédent
         </button>
         <button type="button" className="btn-primary" onClick={onSubmit}>
-          Soumettre
+          Terminer la démonstration
           <span aria-hidden="true">✓</span>
         </button>
       </div>

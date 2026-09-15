@@ -8,6 +8,7 @@ interface Props {
   open: boolean
   onToggle: () => void
   onFileChange: (docId: string, file: File | null) => void
+  disabled?: boolean
 }
 
 export function DocumentAccordion({
@@ -15,6 +16,7 @@ export function DocumentAccordion({
   open,
   onToggle,
   onFileChange,
+  disabled,
 }: Props) {
   const done = countUploaded(category)
   const total = category.documents.length
@@ -26,6 +28,7 @@ export function DocumentAccordion({
         className="doc-cat__header"
         onClick={onToggle}
         aria-expanded={open}
+        aria-controls={`category-${category.id}`}
       >
         <span
           className="doc-cat__badge"
@@ -40,7 +43,7 @@ export function DocumentAccordion({
         <div className="doc-cat__meta">
           <strong>{category.title}</strong>
           <span>
-            {total} document{total > 1 ? 's' : ''}
+            {done === total ? 'Toutes les pièces sont jointes' : `${total - done} pièce${total - done > 1 ? 's' : ''} à joindre`}
           </span>
         </div>
 
@@ -55,12 +58,13 @@ export function DocumentAccordion({
       </button>
 
       {open ? (
-        <div className="doc-cat__body">
+        <div className="doc-cat__body" id={`category-${category.id}`}>
           {category.documents.map((doc) => (
             <DocumentUploadRow
               key={doc.id}
               document={doc}
               onFileChange={(file) => onFileChange(doc.id, file)}
+              disabled={disabled}
             />
           ))}
         </div>

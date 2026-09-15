@@ -7,8 +7,8 @@ interface StepperProps {
 }
 
 function StepIcon({ stepId, active }: { stepId: StepId; active: boolean }) {
-  const stroke = active ? '#f97316' : '#6b7280'
-  const fill = active ? 'rgba(249, 115, 22, 0.15)' : 'transparent'
+  const stroke = active ? '#c45612' : '#736b65'
+  const fill = 'transparent'
 
   const icons: Record<StepId, ReactNode> = {
     documentation: (
@@ -63,7 +63,7 @@ export function Stepper({ currentStep }: StepperProps) {
   const progress = ((currentIndex + 1) / STEPS.length) * 100
 
   return (
-    <div className="stepper">
+    <nav className="stepper" aria-label="Étapes de la demande">
       <div className="stepper__progress-track">
         <div className="stepper__progress-fill" style={{ width: `${progress}%` }} />
       </div>
@@ -75,15 +75,17 @@ export function Stepper({ currentStep }: StepperProps) {
             <div
               key={step.id}
               className={`stepper__step ${active ? 'is-active' : ''} ${done ? 'is-done' : ''}`}
+              aria-current={active ? 'step' : undefined}
             >
               <div className="stepper__icon">
-                <StepIcon stepId={step.id} active={active || done} />
+                {done ? <span aria-hidden="true">✓</span> : <StepIcon stepId={step.id} active={active} />}
               </div>
-              <span className="stepper__label">{step.label}</span>
+              <span className="stepper__copy"><span className="stepper__label">{step.label}</span><span className="stepper__description">{['Les pièces de votre dossier', 'Votre projet et votre budget', 'Vos coordonnées', 'La vérification finale'][index]}</span></span>
+              {active && <span className="stepper__active-dot" aria-hidden="true" />}
             </div>
           )
         })}
       </div>
-    </div>
+    </nav>
   )
 }
